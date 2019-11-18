@@ -67,7 +67,6 @@ instance/
 docs/_build/
 
 # PyBuilder
-#target/
 classes/
 generated-sources/
 generated-test-sources/
@@ -122,6 +121,14 @@ terraform.tfstate
 terraform.tfstate.backup
 terraform.tfvars
 .terraform.tfstate.lock.info
+
+classes/
+generated-sources/
+generated-test-sources/
+maven-archiver/
+maven-status/
+surefire-reports/
+test-classes/
 
 .class
 !.mvn/wrapper/maven-wrapper.jar
