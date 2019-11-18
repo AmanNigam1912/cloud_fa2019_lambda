@@ -10,7 +10,9 @@ jobs:
           command: sudo apt-get update && sudo apt-get install wget zip unzip -y
       - run:
           name: Install awscli
-          command: sudo pip install awscli
+          command: |
+          sudo apt-get install -y python-pip
+          sudo pip install awscli
       - run:
           name: Configure AWS Access Key ID
           command: |
