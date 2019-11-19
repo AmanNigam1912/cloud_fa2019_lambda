@@ -53,4 +53,4 @@ jobs:
            ls -al
            aws s3 cp Email/target/csye6225-lambda-${CIRCLE_BUILD_NUM}.zip s3://${S3_LAMBDA_BUCKET}/csye6225-lambda-${CIRCLE_BUILD_NUM}.zip
            cd Email/target
-           aws lambda update-function-code --function-name  csye-demo --zip-file fileb://Email-1.0-SNAPSHOT.jar
+           aws lambda update-function-code --function-name  lambda_called_from_sns --zip-file fileb://Email-1.0-SNAPSHOT.jar
