@@ -24,6 +24,7 @@ public class Email implements RequestHandler<SNSEvent,Object> {
         String to="";
         String HTMLBODY="";
         String domainName = System.getenv("domainName");
+        int timeToLive = Integer.parseInt(System.getenv("timeToLive"));
         String FROM = "no-reply@"+domainName;
 
         String SUBJECT = "Amazon SES test (EMAIL FOR USER)";
@@ -73,7 +74,7 @@ public class Email implements RequestHandler<SNSEvent,Object> {
                     if (iterator.hasNext() == false) {
                         context.getLogger().log("Entry could not be found for " + to);
                         Calendar cal = Calendar.getInstance();
-                        cal.add(Calendar.MINUTE, 30);
+                        cal.add(Calendar.MINUTE, timeToLive);
                         Date currentDate = cal.getTime();
                         SimpleDateFormat crunchifyFormat = new SimpleDateFormat("MMM dd yyyy HH:mm:ss.SSS zzz");
                         String currentTime = crunchifyFormat.format(currentDate);
