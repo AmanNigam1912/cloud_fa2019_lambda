@@ -73,13 +73,22 @@ public class Email implements RequestHandler<SNSEvent,Object> {
 
                     if (iterator.hasNext() == false) {
                         context.getLogger().log("Entry could not be found for " + to);
-                        Calendar cal = Calendar.getInstance();
-                        cal.add(Calendar.MINUTE, timeToLive);
+//                        Calendar cal = Calendar.getInstance();
+//                        cal.add(Calendar.MINUTE, timeToLive);
+//                        Date currentDate = cal.getTime();
+//                        SimpleDateFormat crunchifyFormat = new SimpleDateFormat("MMM dd yyyy HH:mm:ss.SSS zzz");
+//                        String currentTime = crunchifyFormat.format(currentDate);
+//                        Date date = crunchifyFormat.parse(currentTime);
+//                        Long ts = date.getTime();
+                        TimeZone timeZone = TimeZone.getTimeZone("UTC");
+                        Calendar cal = Calendar.getInstance(timeZone);
+                        cal.add(Calendar.MINUTE, 5);
                         Date currentDate = cal.getTime();
                         SimpleDateFormat crunchifyFormat = new SimpleDateFormat("MMM dd yyyy HH:mm:ss.SSS zzz");
+                        crunchifyFormat.setTimeZone(timeZone);
                         String currentTime = crunchifyFormat.format(currentDate);
                         Date date = crunchifyFormat.parse(currentTime);
-                        Long ts = date.getTime();
+                        Long ts = date.getTime()/1000;
 
                         Item item = new Item();
                         item.withPrimaryKey("id", to);
