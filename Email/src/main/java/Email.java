@@ -5,6 +5,7 @@ import com.amazonaws.services.dynamodbv2.document.*;
 import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 
+import com.amazonaws.services.dynamodbv2.model.QueryRequest;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.SNSEvent;
@@ -24,6 +25,7 @@ public class Email implements RequestHandler<SNSEvent,Object> {
         String to="";
         String HTMLBODY="";
         String domainName = System.getenv("domainName");
+        int timeToLive = Integer.parseInt(System.getenv("timeToLive"));
         String FROM = "no-reply@"+domainName;
 
         String SUBJECT = "Amazon SES test (EMAIL FOR USER)";
@@ -57,28 +59,43 @@ public class Email implements RequestHandler<SNSEvent,Object> {
                     recipeCount = Integer.parseInt(obj.getString("1"));
                     context.getLogger().log("RECIPE_COUNT " + recipeCount);
 
-                    Date todayCal = Calendar.getInstance().getTime();
+                    TimeZone timeZone = TimeZone.getTimeZone("UTC");
+                    Calendar cali = Calendar.getInstance(timeZone);
+                    Date todayCal = cali.getTime();
                     SimpleDateFormat crunchifyFor = new SimpleDateFormat("MMM dd yyyy HH:mm:ss.SSS zzz");
+                    //SimpleDateFormat crunchifyFormat = new SimpleDateFormat("MMM dd yyyy HH:mm:ss.SSS zzz");
+                    crunchifyFor.setTimeZone(timeZone);
                     String curTime = crunchifyFor.format(todayCal);
                     Date curDate = crunchifyFor.parse(curTime);
-                    Long epoch = curDate.getTime();
+                    Long epoch = curDate.getTime()/1000;
                     String currentTs = epoch.toString();
                     context.getLogger().log("Time for resource retrieval " + currentTs);
 
                     QuerySpec querySpec = new QuerySpec().withKeyConditionExpression("id = :vid").withFilterExpression("ttl_timestamp > :vtimeStamp")
                             .withValueMap(new ValueMap().withString(":vid", to).withString(":vtimeStamp", currentTs));
+
+
                     ItemCollection<QueryOutcome> itemcollection = table.query(querySpec);
                     Iterator<Item> iterator = itemcollection.iterator();
 
                     if (iterator.hasNext() == false) {
                         context.getLogger().log("Entry could not be found for " + to);
-                        Calendar cal = Calendar.getInstance();
-                        cal.add(Calendar.MINUTE, 30);
+//                        Calendar cal = Calendar.getInstance();
+//                        cal.add(Calendar.MINUTE, timeToLive);
+//                        Date currentDate = cal.getTime();
+//                        SimpleDateFormat crunchifyFormat = new SimpleDateFormat("MMM dd yyyy HH:mm:ss.SSS zzz");
+//                        String currentTime = crunchifyFormat.format(currentDate);
+//                        Date date = crunchifyFormat.parse(currentTime);
+//                        Long ts = date.getTime();
+                        timeZone = TimeZone.getTimeZone("UTC");
+                        Calendar cal = Calendar.getInstance(timeZone);
+                        cal.add(Calendar.MINUTE, timeToLive);
                         Date currentDate = cal.getTime();
                         SimpleDateFormat crunchifyFormat = new SimpleDateFormat("MMM dd yyyy HH:mm:ss.SSS zzz");
+                        crunchifyFormat.setTimeZone(timeZone);
                         String currentTime = crunchifyFormat.format(currentDate);
                         Date date = crunchifyFormat.parse(currentTime);
-                        Long ts = date.getTime();
+                        Long ts = date.getTime()/1000;
 
                         Item item = new Item();
                         item.withPrimaryKey("id", to);
@@ -109,10 +126,56 @@ public class Email implements RequestHandler<SNSEvent,Object> {
                         context.getLogger().log("Email Sent!");
                     }
                     else{
-                        Item item=iterator.next();
-                        context.getLogger().log("user token found");
-                        context.getLogger().log("username:"+item.getString("id"));
-                        context.getLogger().log("ttl timestamp:"+item.getString("ttl_timestamp"));
+                        Item getTTL = new Item();
+                        getTTL = table.getItem("id",to);
+                        Long dbTTL = Long.parseLong((String)getTTL.get("ttl_timestamp"));
+
+                        if(dbTTL>epoch){
+                            Item item=iterator.next();
+                            context.getLogger().log("user token active");
+                            context.getLogger().log("username:"+item.getString("id"));
+                            context.getLogger().log("ttl timestamp:"+item.getString("ttl_timestamp"));
+                        }
+                        else {
+                            timeZone = TimeZone.getTimeZone("UTC");
+                            Calendar cal = Calendar.getInstance(timeZone);
+                            cal.add(Calendar.MINUTE, timeToLive);
+                            Date currentDate = cal.getTime();
+                            SimpleDateFormat crunchifyFormat = new SimpleDateFormat("MMM dd yyyy HH:mm:ss.SSS zzz");
+                            crunchifyFormat.setTimeZone(timeZone);
+                            String currentTime = crunchifyFormat.format(currentDate);
+                            Date date = crunchifyFormat.parse(currentTime);
+                            Long ts = date.getTime()/1000;
+
+                            Item item = new Item();
+                            item.withPrimaryKey("id", to);
+                            item.with("ttl_timestamp", ts.toString());
+                            context.getLogger().log("Logging time:" + ts.toString());
+                            PutItemOutcome outcome = table.putItem(item);
+
+                            int recipeTracker = 2;
+                            while (recipeCount != 0) {
+                                links.add("https://" + domainName + "/Recipe_Management_System/v1/recipe/" + obj.getString(String.valueOf(recipeTracker)));
+                                recipeCount--;
+                                recipeTracker++;
+                            }
+                            if (links.size() != 0) {
+                                HTMLBODY = "<h1>Your recipe links are: </h1>";
+                                for (String s : links) {
+                                    HTMLBODY = HTMLBODY + "<a href=" + s + ">" + s + "</a>" + "<br/>";
+                                }
+                            }
+
+                            AmazonSimpleEmailService client = AmazonSimpleEmailServiceClientBuilder.standard().withRegion("us-east-1").build();
+                            SendEmailRequest emailRequest = new SendEmailRequest().withDestination(new Destination().withToAddresses(to))
+                                    .withMessage(new Message().withBody(new Body().withHtml(new Content()
+                                            .withCharset("UTF-8").withData(HTMLBODY)).withText(new Content()
+                                            .withCharset("UTF-8").withData(TEXTBODY))).withSubject(new Content()
+                                            .withCharset("UTF-8").withData(SUBJECT))).withSource(FROM);
+                            client.sendEmail(emailRequest);
+                            context.getLogger().log("Email Sent!");
+                        }
+
                     }
                 }
             }
@@ -130,3 +193,4 @@ public class Email implements RequestHandler<SNSEvent,Object> {
         return null;
     }
 }
+
